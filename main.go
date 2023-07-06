@@ -3,14 +3,13 @@ package main
 import (
 	"database/sql"
 	"github.com/MirjahonMirsaidov/rssagg/internal/database"
-	"log"
-	"net/http"
-	"os"
-
 	"github.com/go-chi/chi"
 	"github.com/go-chi/cors"
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
+	"log"
+	"net/http"
+	"os"
 )
 
 type apiConfig struct {
@@ -33,10 +32,11 @@ func main() {
 	if err != nil {
 		log.Fatal("Could not connect to the database, %v", err)
 	}
+	db := database.New(conn)
 	apiCfg := apiConfig{
-		DB: database.New(conn),
+		DB: db,
 	}
-
+	//startScraping(db, 10, time.Minute)
 	router := chi.NewRouter()
 
 	router.Use(cors.Handler(cors.Options{
@@ -51,10 +51,18 @@ func main() {
 	v1Router := chi.NewRouter()
 	v1Router.Get("/healthz", handlerReadiness)
 	v1Router.Get("/error", handlerError)
+
 	v1Router.Post("/user", apiCfg.handlerCreateUser)
 	v1Router.Get("/user", apiCfg.middlewareAuth(apiCfg.handlerGetUser))
+
 	v1Router.Post("/feed", apiCfg.middlewareAuth(apiCfg.handlerCreateFeed))
 	v1Router.Get("/feed", apiCfg.handlerGetFeedList)
+
+	v1Router.Post("/feed_follow", apiCfg.middlewareAuth(apiCfg.handlerCreateFeedFollow))
+	v1Router.Get("/feed_follow", apiCfg.middlewareAuth(apiCfg.handlerGetFeedFollowsList))
+	v1Router.Delete("/feed_follow/{feedFollowId}", apiCfg.middlewareAuth(apiCfg.handlerUnfollowFeed))
+
+	v1Router.Get("/post", apiCfg.middlewareAuth(apiCfg.handlerGetPostListForUser))
 
 	router.Mount("/v1", v1Router)
 
